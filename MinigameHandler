@@ -1,0 +1,86 @@
+
+
+-- ===========================================================
+-- =	Services
+-- ===========================================================
+local rs = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local uis = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+
+-- ===========================================================
+-- =	Minigame Setup
+-- ===========================================================
+
+	local MINIGAMES_FOLDER = rs:WaitForChild("GenMinigames")
+	local GUI_TEMPLATE = rs:WaitForChild("MINIGAME_GUI")
+	
+	-- ============ 
+	-- = Load all the minigame modules.
+	-- ============
+	
+	local MinigameModules = {}
+	
+	for _, module in ipairs(MINIGAMES_FOLDER:GetChildren()) do
+		
+		-- Safety check
+		if module:IsA("ModuleScript") then
+			local MINIGAME_DATA = require(module)
+			-- Store the module's exported table
+			table.insert(MinigameModules, MINIGAME_DATA)
+		end
+	end
+	
+	
+-- ===========================================================
+-- =	Game Flow Logic
+-- ===========================================================
+
+	local promptPart = workspace:WaitForChild("GeneratorMinigameTest")
+	local proximityprompt = promptPart.ProximityPrompt
+	
+	-- =====================
+	-- = Fisher-yates Shuffle HelperFunction
+	-- =====================
+  local function Shuffle(t)
+		for i = #t, 2, -1 do
+			local j = math.random(i)
+			t[i], t[j] = t[j], t[i] 
+		end
+  end
+  
+  -- ==========================
+  -- = Queue FiFo Logic
+  -- ==========================
+  
+  local MinigameQueue = table.clone(MinigameModules)
+  Shuffle(MinigameQueue)
+  
+  local function popQueue()
+		return table.remove(MinigameQueue, 1)
+  end
+  
+  
+
+	-- ============================
+	-- = MinigameManager
+	-- ============================
+	local function StartNextMinigame()
+		
+		local module = popQueue()
+		if not module then 
+			print("All minigames have been completed.")
+			return
+		end
+		
+		
+		module.StartMinigame(rs, GUI_TEMPLATE, function()
+			StartNextMinigame()
+		end)
+	end
+	
+	
+	
+proximityprompt.Triggered:Connect(StartNextMinigame)
