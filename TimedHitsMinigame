@@ -1,0 +1,151 @@
+-- This minigame has the player perfectly pause moving squares onto a central line.
+
+
+local TimedHits = {}
+
+
+
+-- ===========================================================
+-- =	Services
+-- ===========================================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local rs = game:GetService("ReplicatedStorage")
+local ss = game:GetService("ServerStorage")
+local Tween = game:GetService("TweenService")
+local uis = game:GetService("UserInputService")
+
+
+
+function TimedHits.StartMinigame(rs, screenGui, onFinish)
+
+	local screengui = rs:WaitForChild("MINIGAME_GUI"):Clone()
+	screengui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+	local main = screengui.Main
+	
+	
+
+	local thFrame = main.TimedHitsFrame
+	screengui.Main.MathFrame.Visible = false
+	screengui.Main.SimonFrame.Visible = false
+	screengui.Main.TypingFrame.Visible = false
+
+
+	local midline = thFrame.Midline
+	local	box1 =  thFrame.Box1
+	local	box2 =  thFrame.Box2
+	local	box3 =  thFrame.Box3
+	local	box4 =  thFrame.Box4
+	local	box5 =  thFrame.Box5
+	-- track which box the player needs to hit next
+	local currentBoxIndex = 1
+
+
+	-- =	Tweening the boxes up and down.
+	-- ===========================================================	
+
+	local boxes = {
+		box1,
+		box2,
+		box3,
+		box4,
+		box5
+		
+	}
+
+	-- storing tweens so we can cancel later
+	local boxtweens = {}
+
+	-- 		Params: time, style, direction, repeatcount (-1 is infinite), reverses (true)
+	local tweeninfo = TweenInfo.new(
+		0.4, 
+		Enum.EasingStyle.Sine, 
+		Enum.EasingDirection.InOut, 
+		-1,  -- -1 means loop forever
+		true -- true means "yoyo" (go to goal, then go back to start)
+	)
+	-- This allows us to move the boxes up and down.
+	
+	local connections = {}
+
+	-- ====================================================================
+
+	for i,box in ipairs(boxes) do
+		box.Position = UDim2.new(box.Position.X.Scale, 0, 0.8, 0)
+
+		local createdtween = Tween:Create(box, tweeninfo, {Position = UDim2.new(box.Position.X.Scale, 0, 0.2, 0)})
+		boxtweens[i] = createdtween
+
+		createdtween:Play()
+		task.wait(0.1) -- Wait before playing the next boxes animation
+	end
+
+
+	-- =====================================
+	-- = Helper functions
+	-- =====================================
+	local function cleanup()
+		if connections then connections:Disconnect() end -- stop listening for spacebar
+		for _, tween in pairs(boxtweens) do tween:Cancel() end -- stop animations
+		screengui:Destroy() -- Remove UI
+	end
+
+
+
+
+	-- ===========================================================
+	-- =	Overlap checking
+	-- ===========================================================	
+
+	local function overlaps(line, bar)
+		local lineTop = line.AbsolutePosition.Y
+		local lineBottom = lineTop + line.AbsoluteSize.Y
+
+		local barTop = bar.AbsolutePosition.Y
+		local barBottom = barTop + bar.AbsoluteSize.Y
+
+		return not (barBottom < lineTop or barTop > lineBottom)
+
+	end
+
+
+	-- print if the player pressed space when it was overlapping
+	connections = uis.InputBegan:Connect(function(input, gameProcessed)
+		if input.KeyCode == Enum.KeyCode.Space and not gameProcessed then
+
+			local targetBox = boxes[currentBoxIndex]
+			if overlaps(midline, targetBox) then
+
+							-- succesful hit, advance 2 next box
+				boxtweens[currentBoxIndex]:Cancel()
+				targetBox.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+
+							-- Check if the box we just hit was the final box
+				if currentBoxIndex == #boxes then 
+					print("Success! Minigame done!")
+					task.wait(0.5)
+					cleanup()
+					onFinish()
+				else 
+								--  move to the next box for the next input
+					currentBoxIndex = currentBoxIndex + 1
+					print("nice hit! moving to box" .. currentBoxIndex)
+				end
+
+			else				 -- you messed everything up
+				print("Failed..")
+				-- Cancel all tweens on fail
+				for _, tween in pairs(boxtweens) do
+					tween:Cancel()
+				end
+				task.wait(0.5)
+				cleanup()
+				TimedHits.StartMinigame(rs, screenGui, onFinish)
+			end
+		end
+	end)
+end
+
+
+
+return TimedHits
