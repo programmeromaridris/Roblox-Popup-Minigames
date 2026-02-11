@@ -1,0 +1,224 @@
+local SimonSays = {}
+SimonSays.Name = "Simon Says"
+
+
+-- ===========================================================
+-- =	Services
+-- ===========================================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local rs = game:GetService("ReplicatedStorage")
+local ss = game:GetService("ServerStorage")
+local Tween = game:GetService("TweenService")
+local uis = game:GetService("UserInputService")
+
+
+function SimonSays.StartMinigame(rs, screenGui, onFinish)
+			
+
+		-- ======
+		-- Setting up the UI
+		-- ======
+		local screengui = rs:WaitForChild("MINIGAME_GUI"):Clone()
+		screengui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+		local main = screengui.Main
+		local SimonFrame = main.SimonFrame
+		local QuestionBox = SimonFrame.Question
+
+		screengui.Main.TimedHitsFrame.Visible = false
+		screengui.Main.MathFrame.Visible = false
+		screengui.Main.TypingFrame.Visible = false
+	-------------------------------------------------
+	
+
+	-- Config
+		local maxRounds = 3 -- How many times you'll have to listen to simon
+		local currentRound = 1
+		local isGameActive = false
+
+	-----------------------------------------------------------------------------------
+	
+	
+	
+	
+	
+-- ===========================================================
+-- =	Tables
+-- ===========================================================
+
+	local Buttons = {
+		{Name = "Red", obj = SimonFrame.RedBox},
+		{Name = "Green", obj = SimonFrame.GreenBox},
+		{Name = "Blue", obj = SimonFrame.BlueBox},
+		{Name = "Yellow", obj = SimonFrame.YellowBox}
+	}
+	
+	
+
+	local Commanders = { 
+		{name = "Simon says", trustworthy = true},
+		{name = "Simone says", trustworthy = false},
+		{name = "SSimon says", trustworthy = false},
+		{name = "Simon doesn't say", trustworthy = false},
+		{name = "Sim0n says", trustworthy = false},
+		{name = "S1mon says", trustworthy = false},
+		{name = "S1mon doesn't say", trustworthy = false},
+		{name = "5imon says", trustworthy = false},
+		{name = "SSimon doesn't say", trustworthy = false},
+		{name = "Slmon says", trustworthy = false},
+		{name = "SSmon doesn't say", trustworthy = false},
+		{name = "Sim0n doesn't say", trustworthy = false}
+	}
+	-- commanders as in, either the real "Simon", or the fake "Simone, Ssimon" ETC.
+	-- If the commander is simon, then the statement is always true. Else, the statement is always false
+
+
+
+	local adjectives = {
+		{word = "is safe", isSafeType = true},
+		{word = "is not safe", isSafeType = false},
+		{word = "is dangerous", isSafeType = false},
+		{word = "is not dangerous", isSafeType = true},
+		{word = "is death", isSafeType = false},
+		{word = "is fine", isSafeType = true},
+		{word = "is okay to press", isSafeType = true},
+		{word = "is not okay to press", isSafeType = false},
+		{word = "will kill you", isSafeType = true},
+		{word = "is the wrong color", isSafeType = false}
+	}
+	-- this allows us to link adjectives with commanders. If trustworthy is true, and issafetype is true, 
+	-- then the color is safe. If trustworthy is false, and issafetype is true, then the color is unsafe, and so on and so forth
+
+	
+
+			local gameActive = true
+			local connections = {}
+			-- allows us to clean up button presses later
+			
+			
+			
+			
+
+	-- ===============================================================
+	-- =	Helper functions
+	-- ===============================================================
+
+
+		local function clearConnections()
+			for _, conn in ipairs(connections) do
+				conn:Disconnect()
+			end
+			table.clear(connections)
+		end
+		
+		
+	local function Shuffle(t)
+		for i = #t, 2, -1 do
+			local j = math.random(i)
+			t[i], t[j] = t[j], t[i] 
+		end
+	end
+
+	Shuffle(adjectives)
+	Shuffle(Commanders)
+	Shuffle(Buttons)
+
+
+	-- Simon says round loops
+local function StartRound()
+	
+		while currentRound <= maxRounds and gameActive do
+
+			-- generate logic
+			local Target =    Buttons[math.random(1, #Buttons)] -- pick a button at random
+			local Commander = Commanders[math.random(1, #Commanders)] -- pick a commander
+			local Adjective = adjectives[math.random(1, #adjectives)] -- pick an adjective
+
+			-- construct the sentence
+			-- eg: "Simon says Red is death"
+			QuestionBox.Text = Commander.name .. " " .. Target.Name .. " " ..Adjective.word
+			
+
+
+			-- calculate the truth
+			-- the logic: If (Trustworthy == IsSafeType) then the button is safe. otherwise its dangerous
+			local mentionedButtonIsSafe = (Commander.trustworthy == Adjective.isSafeType)
+
+			local roundOver = false
+			local playerWonRound = false
+
+
+			-- debugging
+			if mentionedButtonIsSafe then 
+				print("The color is safe")
+				
+			else
+				print("The color is unsafe")
+
+			end
+
+			for _, btnData in ipairs(Buttons) do
+				local conn = btnData.obj.MouseButton1Click:Connect(function()
+
+					-- determine if button was safe
+					local isSafeClick = false
+
+					if btnData.Name == Target.Name then
+						-- the player clicked the mentioned button, check if its safe
+ 						if mentionedButtonIsSafe then isSafeClick = true end
+
+					else
+						-- player clicked another button, if the mentioned button was unsafe, this is safe.
+						if not mentionedButtonIsSafe then isSafeClick = true end
+						
+					end
+
+					if isSafeClick then
+						playerWonRound = true
+						print("Player won the round!")
+					else
+						playerWonRound = false
+						print("Player lost the round!")
+					end
+
+					roundOver = true
+
+				end)
+				table.insert(connections, conn)
+			end
+
+
+			repeat task.wait() until roundOver 
+
+			-- clean up connections so doubleclicks dont happen
+			clearConnections()
+
+			if not playerWonRound then
+				gameActive = false
+				task.wait(1)
+				screengui:Destroy()
+				print("Failed...")
+				task.wait(0.5) -- exit function
+				SimonSays.StartMinigame(rs, screengui, onFinish)
+			end
+
+			currentRound = currentRound + 1
+			task.wait(0.5)
+		end
+
+		-- If loop finishes, they won
+		print("Minigame Completed!")
+		QuestionBox.Text = "YOU WIN!"
+		task.wait(1)
+		screengui:Destroy()
+		onFinish()
+
+	end
+
+	StartRound()
+end
+		
+
+
+return SimonSays
