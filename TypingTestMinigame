@@ -1,0 +1,120 @@
+-- This minigame has the player perfectly type out the shown sentence.
+
+local TypingTest = {}
+TypingTest.Name = "TypingTestMinigame"
+
+-- ===========================================================
+-- =	Services
+-- ===========================================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local rs = game:GetService("ReplicatedStorage")
+local ss = game:GetService("ServerStorage")
+local Tween = game:GetService("TweenService")
+local uis = game:GetService("UserInputService")
+
+
+function TypingTest.StartMinigame(rs, screengui, onFinish)
+	
+	-- ====
+	-- = Setting up UI
+	-- ====
+	local screengui = rs:WaitForChild("MINIGAME_GUI"):Clone()
+	screengui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+	local main = screengui.Main
+	local typingFrame = main.TypingFrame
+	local targetBox = typingFrame.TargetText
+	local playerInput = typingFrame.playerInput
+	local visualF = typingFrame.visualFeedback
+
+	screengui.Main.TimedHitsFrame.Visible = false
+	screengui.Main.SimonFrame.Visible = false
+	screengui.Main.MathFrame.Visible = false
+	
+	visualF.RichText = true
+	--------------------------------------------------------------
+	
+	local TargetSentences = {
+		
+		"The quick brown fox jumps over the lazy dog.",
+		"Jinxed wizards pluck ivy from the big quilt.",
+		"Sphinx of black quartz, judge my vow.",
+		"The five boxing wizards jump quickly.",
+		"How vexingly quick daft zebras jump!",
+		"Waltz, bad nymph, for quick jigs vex.",
+		"Bright vixens jump; dozy fowl quack."
+		
+	}
+	
+	local TargetSentence = TargetSentences[math.random(1, #TargetSentences)]
+	local isGameActive = true
+	local connection 
+	
+	-- ====
+	-- Helper
+	-- ====
+	local function cleanup()
+		if connection then connection:Disconnect() end
+		screengui:Destroy()
+	end
+	
+	
+	local function UpdateTypingTest()
+		if not isGameActive then return end -- safety check
+		
+		
+		
+		local currentInputText = playerInput.Text
+		local targetLength = string.len(TargetSentence)
+		local inputLength = string.len(currentInputText)
+		local Feedbacktext = {} -- table to build the richtext string
+		
+		local allCorrect = true
+		
+		for i = 1, targetLength do
+			local targetChar = string.sub(TargetSentence, i, i)
+			local inputChar = string.sub(currentInputText, i, i)
+			local isTyped = (i <= inputLength)
+			
+			local ColorTagStart = "<font color='rgb(" -- some bullshit i dont fuckign knoowwwww 
+			local ColorTagEnd = ")'>"				-- this shit pissed me off so bad literally no one documented a method on how to do this 
+			local ColorTagClose = "</font>"
+			
+			
+			if isTyped then
+				if targetChar == inputChar then
+					-- if character is correct, color the character green
+					table.insert(Feedbacktext, ColorTagStart .. "0, 255, 0" .. ColorTagEnd .. targetChar .. ColorTagClose)
+				else -- shits wrong : red
+					allCorrect = false
+					table.insert(Feedbacktext, ColorTagStart .. "255, 0, 0" .. ColorTagEnd .. targetChar .. ColorTagClose)
+				end
+			else -- characters not typed, grey
+				allCorrect = false
+				table.insert(Feedbacktext, ColorTagStart .. "155, 155, 155" .. ColorTagEnd .. targetChar .. ColorTagClose)
+			end
+		end
+		visualF.Text = table.concat(Feedbacktext)
+		
+		-- check for win condition
+		if allCorrect and (inputLength == targetLength) then
+			isGameActive = false
+			print(" you are winrar")
+			cleanup()
+			onFinish()
+		end
+	end 
+	
+	targetBox.Text = TargetSentence
+	visualF.Text = TargetSentence 
+
+	
+	connection = playerInput:GetPropertyChangedSignal("Text"):Connect(UpdateTypingTest)
+
+	
+	playerInput:CaptureFocus()
+	UpdateTypingTest()
+end
+
+return TypingTest
