@@ -1,0 +1,139 @@
+-- This minigame has the player solve simple mathematical equations.
+
+local MathMinigame = {}
+MathMinigame.Name = "Math Minigame"
+
+-- ===========================================================
+-- =	Services
+-- ===========================================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local rs = game:GetService("ReplicatedStorage")
+local ss = game:GetService("ServerStorage")
+local Tween = game:GetService("TweenService")
+local uis = game:GetService("UserInputService")
+
+
+
+function MathMinigame.StartMinigame(rs, screenGui, onFinish)
+	
+	
+	-- ====
+	-- = Setting up UI
+	-- ====
+	local screengui = rs:WaitForChild("MINIGAME_GUI"):Clone()
+	screengui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+	local main = screengui.Main
+	local mathFrame = main.MathFrame
+	local questionBox = mathFrame.Question
+
+	screengui.Main.TimedHitsFrame.Visible = false
+	screengui.Main.SimonFrame.Visible = false
+	screengui.Main.TypingFrame.Visible = false
+	
+	
+	--------------------------------------------------------------
+	local answerButtons = {
+
+		mathFrame.Ans1,
+		mathFrame.Ans2
+	}
+
+	local operations = {
+		{symbol = "+", func = function(a, b) return a + b end},
+		{symbol = "-", func = function(a, b) return a - b end},
+		{symbol = "*", func = function(a, b) return a * b end}
+	}
+
+
+	local function GenerateQuestion()
+		local num1 = math.random(1, 50)
+		local num2 = math.random(1, 50)
+
+		-- Pick a random operation table from our list
+		local selectedOp = operations[math.random(1, #operations)]
+
+		-- ensuring the order is always Big to Small
+		if selectedOp.symbol == "-" and num1 < num2 then
+			num1, num2 = num2, num1 -- swap numbers
+		end
+
+		local answer = selectedOp.func(num1, num2)
+		local questionText = num1.. "" ..selectedOp.symbol.. "" ..num2
+
+
+		return questionText, answer
+	end
+
+
+
+	-- =============================
+	-- = Helper  functions
+	-- ==============================
+	local connections = {}
+	
+	local function cleanup()
+		for _, conn in ipairs(connections) do
+			conn:Disconnect()
+		end
+		table.clear(connections)
+		screengui:Destroy()
+	end
+	
+	
+	
+
+	local questionText, correctAns = GenerateQuestion()
+	questionBox.Text = questionText
+
+	-- pick which button gets the right answer
+	local correctButtonIndex = math.random(1, #answerButtons)
+
+
+	for i, button in ipairs(answerButtons) do
+		if i == correctButtonIndex then
+
+			-- this is the correct button
+			button.Text = tostring(correctAns)
+
+		table.insert(connections, 
+				button.MouseButton1Click:Connect(function()
+				print("Correct answer my nigga!")
+				button.BorderColor3 = Color3.fromRGB(0, 255, 0)
+				task.wait(0.5)
+				cleanup()
+				onFinish()
+				end)
+			)	
+		else
+
+
+			-- this is the wrong button
+			-- make a wrong answer thats confusing
+			local wrongAns
+			repeat
+				wrongAns = correctAns + math.random(-10, 10)
+			until wrongAns ~= correctAns and wrongAns >= 0
+
+
+			button.Text = tostring(wrongAns)
+			
+			table.insert(connections, 
+				button.MouseButton1Click:Connect(function()
+				print("Failed.")
+				button.BorderColor3 = Color3.fromRGB(255, 0, 0) -- Red
+				task.wait(0.5)
+				cleanup()
+				MathMinigame.StartMinigame(rs, screenGui, onFinish)
+
+			end)
+			
+		)
+		end
+
+	end
+		
+end
+
+return MathMinigame
